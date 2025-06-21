@@ -107,11 +107,10 @@ st.title(f"{APP_ICON} {APP_TITLE}")
 st.markdown("Got a PDF that's too big? Let's make it smaller! "
             "Perfect for emails, uploads, and saving space. ✨")
 
----
+# --- 1. Upload Your PDF Here Section ---
+st.markdown("---") # Separator
+st.subheader("1. Upload Your PDF Here 👇")
 
-### **1. Upload Your PDF Here 👇**
-
-```python
 lottie_json_upload = load_lottieurl(LOTTIE_ANIMATION_URL_UPLOAD)
 if lottie_json_upload:
     st_lottie(lottie_json_upload, height=150, key="pdf_upload_animation")
@@ -196,37 +195,3 @@ else: # This block displays when no file is uploaded yet
 # --- Footer with your information ---
 st.markdown("Made with ❤️ by Rajeev Bhandari")
 st.markdown(f"Connect with me on [LinkedIn]({YOUR_LINKEDIN_URL})")
-
----
-
-### **How to Use This Enhanced App:**
-
-1.  **Save the Code:** Copy and paste the entire code above into a file named `app.py`.
-2.  **Get Your Logo (Optional):**
-    * Place your logo image file (e.g., `your_logo.png`) in the **same folder** as `app.py`.
-    * If you don't have a logo or don't want one, **comment out** the line `st.image(YOUR_LOGO_PATH, width=150)` near the top.
-3.  **Install Libraries:** Open your computer's terminal or command prompt, navigate to your project folder, and run:
-    `pip install streamlit pypdf requests streamlit-lottie`
-    * `requests` and `streamlit-lottie` are new additions for the animations.
-4.  **Run the App:** In the terminal, type `streamlit run app.py` and press Enter.
-5.  A new browser tab will open, showing your super cool PDF Shrinker!
-
----
-
-### **What's New and Cooler:**
-
-* **Animations on Upload & Compress:**
-    * A **file upload animation** plays when the app starts, prompting the user.
-    * A **compression animation** plays while the PDF is being processed, making the waiting time more engaging.
-    * *Remember:* These rely on external Lottie JSON files. I've chosen generic ones. You can find more personalized ones on [LottieFiles.com](https://lottiefiles.com/)!
-* **"Feel the Difference" Animation (Simulated):**
-    * After compression, the app now uses `st.columns` and `st.metric` with clear emojis (`📊` for original, `👇` for shrunk) and bold text to visually represent the size drop side-by-side.
-    * The `st.markdown("## ➡️")` provides a simple visual flow from original to shrunk.
-    * A big, bold "You Saved: XX.XX%!" message reinforces the impact.
-* **Simplified Compression Control:**
-    * The "Image Quality" slider is replaced with "**Shrink Power! (More Power = Smaller File)**." This makes the control much more intuitive for a "non-IT" person. They just need to decide if they want a smaller file (more power) or better quality (less power).
-    * The `help` text for this slider is also simplified.
-* **Error Handling for Logo:** Added a `try-except` block for the logo image to prevent errors if the file isn't found, displaying a helpful warning instead.
-* **General Polish:** Continued to refine explanations, button labels, and use of markdown for better visual appeal and clarity.
-
-This version should be much more user-friendly and visually appealing, especially with the animations and the simplified compression control!
