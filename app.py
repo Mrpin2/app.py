@@ -3,6 +3,7 @@
 import streamlit as st
 from pypdf import PdfWriter, PdfReader
 import io
+from PIL import Image # New import for image processing
 
 # --- Configuration for your App ---
 APP_TITLE = "Super Simple PDF Shrinker! 📄✨"
@@ -49,13 +50,40 @@ def reduce_pdf_size(uploaded_file, compression_level=9, image_quality=80):
             # Apply lossless compression to text, lines, etc.
             current_page_in_writer.compress_content_streams(level=compression_level)
 
-            # --- Reduce image quality if you want a smaller file ---
-            if image_quality < 100:
+            # --- Advanced Image Compression (Conditional on Image Type and Quality Setting) ---
+            if image_quality < 100: # Only try to compress if quality reduction is requested
                 for img in current_page_in_writer.images:
                     try:
-                        img.replace(img.image, quality=image_quality)
+                        # Attempt to re-compress all images
+                        img_filter = img.get("/Filter", "/Unknown") # Get image filter/type
+                        img_decode = img.get("/DecodeParms", {}) # Get decode parameters for image
+
+                        # Check if it's already a JPEG or can be directly handled by pypdf's quality setting
+                        if "/DCTDecode" in img_filter or "/JPXDecode" in img_filter: # DCTDecode for JPEG, JPXDecode for JPEG 2000
+                            img.replace(img.image, quality=image_quality)
+                        # If it's a non-JPEG and image_quality is aggressive, try converting to JPEG
+                        elif image_quality <= 40: # Apply aggressive conversion if quality is low (e.g., <= 40%)
+                            if isinstance(img.image, Image.Image): # Ensure it's a PIL Image object
+                                output_img_bytes = io.BytesIO()
+                                # Convert to RGB if not already (JPEGs are typically RGB)
+                                rgb_image = img.image.convert("RGB")
+                                rgb_image.save(output_img_bytes, format="JPEG", quality=image_quality)
+                                output_img_bytes.seek(0)
+                                # Replace the image with the new JPEG data
+                                img.replace(output_img_bytes.getvalue(), filter='/DCTDecode')
+                                # Note: This might overwrite other image properties not managed by .replace() easily.
+                                # For true robust replacement, one would manually create new XObject stream.
+                            else:
+                                st.warning(f"⚠️ Image on page could not be processed (Unsupported format for conversion).")
+                        else:
+                            # Inform user if not JPEG and not aggressive enough quality for conversion
+                            st.info(f"ℹ️ An image on a page was not compressed because it's not a JPEG "
+                                    f"and your 'Picture Quality' setting ({image_quality}%) is not low enough "
+                                    f"to trigger aggressive conversion (requires <= 40%).")
+
                     except Exception as e:
-                        st.warning(f"Couldn't make an image smaller on a page (might be a special type). Error: {e}")
+                        st.warning(f"⚠️ General error trying to shrink an image on a page. "
+                                   f"This might be due to a very unusual image format or structure. Error: {e}")
 
         # Optimize the PDF even further: remove duplicates and unused bits
         writer.compress_identical_objects(remove_identicals=True, remove_orphans=True)
@@ -101,8 +129,6 @@ st.markdown("Got a PDF that's too big? Let's make it smaller! "
 st.markdown("---") # Separator
 st.subheader("1. Upload Your PDF Here 👇")
 
-# Removed Lottie animation for upload
-
 uploaded_file = st.file_uploader("Drag and drop your PDF or click to browse", type="pdf")
 
 if uploaded_file is not None:
@@ -111,27 +137,31 @@ if uploaded_file is not None:
 
     st.markdown("---") # Separator
     st.subheader("2. Choose How Small You Want It! 👇")
-    st.markdown("This tool works best by adjusting **Picture Quality**. "
-                "The lower the quality, the smaller the file (but pictures might get a little blurry).")
+    st.markdown("This tool works best by adjusting **Picture Quality**. The **lower** the quality value, the **smaller** the file (but pictures might get a little blurry).")
+    st.markdown("If you need a very small file (e.g., under 10MB), you'll likely need to reduce the Picture Quality significantly.")
 
-    # --- Simplified Compression Control ---
+    # --- Conditional Warning about Aggressive Compression ---
+    st.info("""
+    **💡 Tip for Super Small Files:** If you set 'Picture Quality' to **40% or lower**, the app will try to convert *all* images (even non-JPEGs like PNGs) into lower quality JPEGs for maximum shrinkage. This can sometimes make text or sharp graphics look blurry, but it's great for photos and achieving very small file sizes!
+    """)
+
+    # --- Simplified Compression Control (Updated for Clarity) ---
     quality_setting = st.slider(
-        "⚡ **Shrink Power!** (More Power = Smaller File)",
-        min_value=0, max_value=100, value=75, step=5,
-        help="Slide towards 'Smallest File' to greatly reduce size (pictures might become less clear). "
-             "Slide towards 'Best Quality' to keep pictures crisp (larger file)."
+        "🖼️ **Picture Quality** (Lower Value = Smaller File)",
+        min_value=0, max_value=100, value=60, step=5, # Changed default to 60 to encourage more reduction
+        help="This controls the quality of images in your PDF. "
+             "**100 = Best Quality (largest file)**; **0 = Lowest Quality (smallest file, pictures might be very blurry)**. "
+             "Drag this slider towards 0 for the biggest file size reduction!"
     )
 
     compression_level = 9
     image_quality = quality_setting
 
-    st.markdown(f"**Your Current Setting:** You're aiming for a balance between **`{quality_setting}%`** picture quality and file size.")
+    st.markdown(f"**Your Current Picture Quality Setting:** **`{quality_setting}%`** (Drag left for smaller files)")
 
 
     if st.button("🚀 Shrink My PDF Now!", type="primary"):
         with st.spinner("Processing... Your PDF is getting its workout! 💪"):
-            # Removed Lottie animation for compress
-
             compressed_pdf_bytes, actual_original_size_bytes, actual_compressed_size_bytes = reduce_pdf_size(
                 uploaded_file, compression_level, image_quality
             )
@@ -154,6 +184,13 @@ if uploaded_file is not None:
 
                 st.markdown(f"### **🥳 You Saved: `{reduction_percentage:.2f}%` of the original size!**")
 
+                # Provide feedback on the 10MB goal
+                if actual_compressed_size_bytes < (10 * 1024 * 1024): # 10 MB in bytes
+                    st.balloons()
+                    st.success(f"✅ Success! Your PDF is now under 10MB ({actual_compressed_size_bytes / (1024*1024):.2f} MB)! Perfect for emails!")
+                else:
+                    st.info(f"Your PDF is now {actual_compressed_size_bytes / (1024*1024):.2f} MB. If you need it even smaller, try reducing the 'Picture Quality' slider further (drag it closer to 0).")
+
 
                 st.download_button(
                     label="⬇️ Download Your Shrunken PDF",
@@ -163,7 +200,7 @@ if uploaded_file is not None:
                     help="Click to download your newly shrunken PDF."
                 )
 
-                # --- New Humorous and Assuring Safety Message ---
+                # --- Humorous and Assuring Safety Message ---
                 st.markdown("---")
                 st.success("✨ **Privacy Check Complete!** ✨")
                 st.info("Your document was processed directly in our app's memory and **was never saved** to any server disk. "
