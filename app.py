@@ -11,16 +11,26 @@ import requests
 APP_TITLE = "Super Simple PDF Shrinker! 📄✨"
 APP_ICON = "🎈"
 YOUR_LINKEDIN_URL = "https://www.linkedin.com/in/rajeevbhandari87/"
-YOUR_LOGO_PATH = "your_logo.png" # <--- IMPORTANT: Place your logo file (e.g., your_logo.png) in the same folder!
+# IMPORTANT: Ensure 'Logo.png' is in the ROOT of your GitHub repository,
+# alongside app.py, for Streamlit Cloud to find it.
+YOUR_LOGO_PATH = "Logo.png"
 LOTTIE_ANIMATION_URL_UPLOAD = "https://lottie.host/75421c60-a4a3-4ec6-8dd3-979f4277b949/67g8tq340F.json" # File upload animation
 LOTTIE_ANIMATION_URL_COMPRESS = "https://lottie.host/17800746-8809-42b7-862d-a6d17b5f2122/tHn42x9pP3.json" # Compression/shrinking animation
 
 # --- Helper to load Lottie Animations ---
 def load_lottieurl(url: str):
-    r = requests.get(url)
-    if r.status_code != 200:
+    """Loads a Lottie animation JSON from a given URL."""
+    try:
+        r = requests.get(url, timeout=5) # Added timeout for robustness
+        r.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+        return r.json()
+    except requests.exceptions.RequestException as e:
+        st.error(f"Failed to load animation from {url}. Error: {e}")
         return None
-    return r.json()
+    except ValueError: # JSON decoding error
+        st.error(f"Failed to decode JSON from animation URL: {url}. Is it a valid Lottie JSON?")
+        return None
+
 
 # --- Function to Shrink PDF Size (The Engine Room) ---
 def reduce_pdf_size(uploaded_file, compression_level=9, image_quality=80):
@@ -67,7 +77,7 @@ def reduce_pdf_size(uploaded_file, compression_level=9, image_quality=80):
                         # Re-squish the image with the quality you chose
                         img.replace(img.image, quality=image_quality)
                     except Exception as e:
-                        st.warning(f"Couldn't make an image smaller (might be a special type). Error: {e}")
+                        st.warning(f"Couldn't make an image smaller on a page (might be a special type). Error: {e}")
 
         # Optimize the PDF even further: remove duplicates and unused bits
         # This is like decluttering your room – getting rid of things you don't need!
@@ -96,12 +106,14 @@ st.set_page_config(
 )
 
 # You can add your logo here!
-# Ensure 'your_logo.png' is in the same directory as this script.
-# If you don't have a logo, comment out the line below.
+# Ensure 'Logo.png' is in the ROOT of your GitHub repository.
 try:
     st.image(YOUR_LOGO_PATH, width=150)
 except FileNotFoundError:
-    st.warning("Logo file not found! Make sure 'your_logo.png' is in the same folder as app.py.")
+    st.warning("Logo file not found! Make sure 'Logo.png' is in the same folder as app.py and committed to GitHub.")
+except Exception as e:
+    st.error(f"An unexpected error occurred while loading the logo: {e}")
+
 
 st.title(f"{APP_ICON} {APP_TITLE}")
 st.markdown("Got a PDF that's too big? Let's make it smaller! "
@@ -148,6 +160,8 @@ if uploaded_file is not None:
             lottie_json_compress = load_lottieurl(LOTTIE_ANIMATION_URL_COMPRESS)
             if lottie_json_compress:
                 st_lottie(lottie_json_compress, height=200, key="pdf_compress_animation")
+            else:
+                st.info("Animation couldn't load, but the compression is still running!")
 
             compressed_pdf_bytes, actual_original_size_bytes, actual_compressed_size_bytes = reduce_pdf_size(
                 uploaded_file, compression_level, image_quality
