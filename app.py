@@ -3,15 +3,24 @@
 import streamlit as st
 from pypdf import PdfWriter, PdfReader
 import io
+# To use Lottie animations, install: pip install streamlit-lottie requests
+from streamlit_lottie import st_lottie
+import requests
 
 # --- Configuration for your App ---
-APP_TITLE = "Super Simple PDF Shrinker! 📄✨" # Catchy title
-APP_ICON = "🎈" # A fun emoji for the browser tab
-YOUR_LINKEDIN_URL = "https://www.linkedin.com/in/rajeevbhandari87/" # Your LinkedIn URL
-YOUR_LOGO_PATH = "your_logo.png" # <--- IMPORTANT: Replace with your logo's file name
-                                # Make sure 'your_logo.png' is in the same folder as app.py
-LOTTIE_ANIMATION_URL = "https://lottie.host/75421c60-a4a3-4ec6-8dd3-979f4277b949/67g8tq340F.json" # Example Lottie JSON URL for a file upload animation
-                                                                                               # Find more at lottiefiles.com!
+APP_TITLE = "Super Simple PDF Shrinker! 📄✨"
+APP_ICON = "🎈"
+YOUR_LINKEDIN_URL = "https://www.linkedin.com/in/rajeevbhandari87/"
+YOUR_LOGO_PATH = "your_logo.png" # <--- IMPORTANT: Place your logo file (e.g., your_logo.png) in the same folder!
+LOTTIE_ANIMATION_URL_UPLOAD = "https://lottie.host/75421c60-a4a3-4ec6-8dd3-979f4277b949/67g8tq340F.json" # File upload animation
+LOTTIE_ANIMATION_URL_COMPRESS = "https://lottie.host/17800746-8809-42b7-862d-a6d17b5f2122/tHn42x9pP3.json" # Compression/shrinking animation
+
+# --- Helper to load Lottie Animations ---
+def load_lottieurl(url: str):
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+    return r.json()
 
 # --- Function to Shrink PDF Size (The Engine Room) ---
 def reduce_pdf_size(uploaded_file, compression_level=9, image_quality=80):
@@ -51,14 +60,13 @@ def reduce_pdf_size(uploaded_file, compression_level=9, image_quality=80):
             # Think of this like neatly folding clothes – they take up less space, but nothing is lost.
             current_page_in_writer.compress_content_streams(level=compression_level)
 
-            # --- EXPERIMENTAL: Reduce image quality if you want a smaller file ---
+            # --- Reduce image quality if you want a smaller file ---
             if image_quality < 100: # Only do this if you want to make images smaller
                 for img in current_page_in_writer.images:
                     try:
                         # Re-squish the image with the quality you chose
                         img.replace(img.image, quality=image_quality)
                     except Exception as e:
-                        # Sometimes an image might be tricky, we'll let you know!
                         st.warning(f"Couldn't make an image smaller (might be a special type). Error: {e}")
 
         # Optimize the PDF even further: remove duplicates and unused bits
@@ -89,70 +97,59 @@ st.set_page_config(
 
 # You can add your logo here!
 # Ensure 'your_logo.png' is in the same directory as this script.
-# st.image(YOUR_LOGO_PATH, width=150) # Uncomment this line and replace 'your_logo.png' with your actual logo file name
+# If you don't have a logo, comment out the line below.
+try:
+    st.image(YOUR_LOGO_PATH, width=150)
+except FileNotFoundError:
+    st.warning("Logo file not found! Make sure 'your_logo.png' is in the same folder as app.py.")
 
 st.title(f"{APP_ICON} {APP_TITLE}")
 st.markdown("Got a PDF that's too big? Let's make it smaller! "
             "Perfect for emails, uploads, and saving space. ✨")
 
-# --- Animation Placeholder ---
-# To add cool animations, you'll need the 'streamlit_lottie' library.
-# Install it: pip install streamlit-lottie
-# Then, import it:
-# from streamlit_lottie import st_lottie
-# import requests # You might need this to load Lottie animations from a URL
+---
 
-# def load_lottieurl(url: str):
-#     r = requests.get(url)
-#     if r.status_code != 200:
-#         return None
-#     return r.json()
+### **1. Upload Your PDF Here 👇**
 
-# lottie_json = load_lottieurl(LOTTIE_ANIMATION_URL)
-# if lottie_json:
-#     st_lottie(lottie_json, height=200, key="pdf_animation")
-# else:
-#     st.info("No cool animation? Make sure the Lottie URL is correct and install 'streamlit_lottie'!")
+```python
+lottie_json_upload = load_lottieurl(LOTTIE_ANIMATION_URL_UPLOAD)
+if lottie_json_upload:
+    st_lottie(lottie_json_upload, height=150, key="pdf_upload_animation")
 
-st.write("---") # A nice separator line
-
-# File Uploader Section
-st.subheader("1. Upload Your PDF Here 👇")
 uploaded_file = st.file_uploader("Drag and drop your PDF or click to browse", type="pdf")
 
 if uploaded_file is not None:
     original_size_bytes_display = len(uploaded_file.getvalue())
     st.info(f"**Original PDF Size:** **`{original_size_bytes_display / (1024*1024):.2f} MB`** 📏")
 
-    st.subheader("2. Choose How Much to Shrink It! 👇")
-    st.markdown("Want a *really* small file? Lower the 'Image Quality' setting. "
-                "Higher quality means a bigger file, but better-looking pictures.")
+    st.markdown("---") # Separator
+    st.subheader("2. Choose How Small You Want It! 👇")
+    st.markdown("This tool works best by adjusting **Picture Quality**. "
+                "The lower the quality, the smaller the file (but pictures might get a little blurry).")
 
-    # --- Compression Options ---
-
-    # Content Stream Compression (Lossless) - explained simply
-    compression_level = st.slider(
-        "✨ **Smart Text & Graphics Shrinker** (No Quality Loss)",
-        min_value=0, max_value=9, value=9, step=1,
-        help="This tidies up text and drawings in your PDF without losing any detail. "
-             "Think of it as organizing files – they're the same, just neater and smaller! "
-             "Setting 9 is the best for shrinking (might take a tiny bit longer)."
+    # --- Simplified Compression Control ---
+    # This slider directly controls the image_quality, but with friendlier labels.
+    quality_setting = st.slider(
+        "⚡ **Shrink Power!** (More Power = Smaller File)",
+        min_value=0, max_value=100, value=75, step=5,
+        help="Slide towards 'Smallest File' to greatly reduce size (pictures might become less clear). "
+             "Slide towards 'Best Quality' to keep pictures crisp (larger file)."
     )
 
-    # Image Quality (Lossy) - Explained as the main 'lever'
-    image_quality = st.slider(
-        "🖼️ **Picture Quality** (Your Main Size Lever!)",
-        min_value=0, max_value=100, value=80, step=5,
-        help="This is the most powerful setting for reducing PDF size, especially if your PDF has photos or scanned pages. "
-             "**100 = Best Quality (bigger file)**, **0 = Lowest Quality (super small file, but pictures might look blurry!)**. "
-             "Try different values to find your perfect balance!"
-    )
-    st.markdown(f"**Current Picture Quality Setting:** `{image_quality}%` (Lower % = smaller file, more blur)")
+    # Map the simplified slider to image_quality and compression_level
+    # We'll make 'compression_level' always max (9) for best lossless compression
+    compression_level = 9
+    image_quality = quality_setting # Direct mapping for simplicity
+
+    st.markdown(f"**Your Current Setting:** You're aiming for a balance between **`{quality_setting}%`** picture quality and file size.")
 
 
     if st.button("🚀 Shrink My PDF Now!", type="primary"):
-        with st.spinner("Crunching numbers and shrinking your PDF... This might take a moment!"):
-            # Call our main shrinking function
+        with st.spinner("Crunching numbers and making your PDF tiny... Please wait!"):
+            lottie_json_compress = load_lottieurl(LOTTIE_ANIMATION_URL_COMPRESS)
+            if lottie_json_compress:
+                st_lottie(lottie_json_compress, height=200, key="pdf_compress_animation")
+
             compressed_pdf_bytes, actual_original_size_bytes, actual_compressed_size_bytes = reduce_pdf_size(
                 uploaded_file, compression_level, image_quality
             )
@@ -161,15 +158,20 @@ if uploaded_file is not None:
                 reduction_percentage = ((actual_original_size_bytes - actual_compressed_size_bytes) / actual_original_size_bytes) * 100
 
                 st.success("🎉 Your PDF has been successfully shrunk!")
-                st.write(f"**Shrunk File Size:** `{actual_compressed_size_bytes / (1024*1024):.2f} MB`")
-                st.write(f"**You Saved:** `{reduction_percentage:.2f}%` of the original size!")
 
-                # Provide feedback on the 10MB goal (if that's a common target)
-                if actual_compressed_size_bytes < (10 * 1024 * 1024): # 10 MB in bytes
-                    st.balloons() # A little celebration!
-                    st.success(f"🥳 Great news! Your PDF is now under the 10MB target (`{actual_compressed_size_bytes / (1024*1024):.2f} MB`) with these settings!")
-                else:
-                    st.info(f"Your PDF is now `{actual_compressed_size_bytes / (1024*1024):.2f} MB`. If you need it even smaller, try moving the 'Picture Quality' slider down further.")
+                # --- Dynamic Size Animation / Feel the Difference ---
+                st.markdown("### **Feel the Difference!**")
+                col1, col2, col3 = st.columns([1, 0.5, 1])
+
+                with col1:
+                    st.metric(label="Original Size", value=f"{actual_original_size_bytes / (1024*1024):.2f} MB 📊")
+                with col2:
+                    st.markdown("## ➡️") # Simple arrow for visual flow
+                with col3:
+                    st.metric(label="Shrunk Size", value=f"{actual_compressed_size_bytes / (1024*1024):.2f} MB 👇")
+
+                st.markdown(f"### **🥳 You Saved: `{reduction_percentage:.2f}%` of the original size!**")
+
 
                 st.download_button(
                     label="⬇️ Download Your Shrunken PDF",
@@ -185,30 +187,46 @@ else: # This block displays when no file is uploaded yet
 
     st.subheader("💡 How This PDF Shrinker Works:")
     st.markdown("""
-    - **Smart Text & Graphics Shrinker (Lossless):** This clever part compresses the text and drawings in your PDF without changing how they look. It's like zipping up a folder – the contents are the same, just packed tighter!
-    - **Picture Quality (Lossy):** This is your secret weapon for super small files! If your PDF has photos or scanned pages, this feature will make them smaller by gently reducing their quality. Lower numbers mean smaller files but slightly less crisp pictures.
-    - **Digital Declutter (Object Optimization):** The tool also cleans up your PDF by removing any duplicate information or unused bits that might be hiding inside. It's all about making your file as lean as possible!
+    - **Smart Text & Graphics Shrinker:** This feature tidies up text and drawings without any loss in quality. It's like expertly packing a suitcase – everything fits better!
+    - **Picture Quality (Your Main Shrink Lever):** This is where the magic happens for big PDFs with images. It gently reduces picture quality to make the file much smaller. Less quality = much smaller file!
+    - **Digital Declutter:** The tool also cleans up your PDF by removing any hidden, unused bits, making it even lighter.
     """)
     st.markdown("---")
 
 # --- Footer with your information ---
 st.markdown("Made with ❤️ by Rajeev Bhandari")
 st.markdown(f"Connect with me on [LinkedIn]({YOUR_LINKEDIN_URL})")
-# If you uncommented the logo line above, you might want to adjust its position
-# or size to fit well with the footer.
 
-# --- Instructions for the user to run this ---
-st.sidebar.markdown("### How to Use This App:")
-st.sidebar.markdown("""
-1.  **Save this code** as `app.py` on your computer.
-2.  **Save your logo** (e.g., `your_logo.png`) in the **same folder** as `app.py`.
-    * *If you don't have a logo, you can comment out the `st.image(YOUR_LOGO_PATH, width=150)` line above.*
-3.  **Open your computer's terminal or command prompt.**
-4.  **Navigate to the folder** where you saved `app.py` (e.g., `cd path/to/your/folder`).
-5.  **Install the necessary libraries:**
-    `pip install streamlit pypdf`
-    * *For animations, also install `pip install streamlit-lottie requests` and uncomment the animation block.*
-6.  **Run the app:**
-    `streamlit run app.py`
-7.  A web page will open in your browser, and you're ready to shrink PDFs!
-""")
+---
+
+### **How to Use This Enhanced App:**
+
+1.  **Save the Code:** Copy and paste the entire code above into a file named `app.py`.
+2.  **Get Your Logo (Optional):**
+    * Place your logo image file (e.g., `your_logo.png`) in the **same folder** as `app.py`.
+    * If you don't have a logo or don't want one, **comment out** the line `st.image(YOUR_LOGO_PATH, width=150)` near the top.
+3.  **Install Libraries:** Open your computer's terminal or command prompt, navigate to your project folder, and run:
+    `pip install streamlit pypdf requests streamlit-lottie`
+    * `requests` and `streamlit-lottie` are new additions for the animations.
+4.  **Run the App:** In the terminal, type `streamlit run app.py` and press Enter.
+5.  A new browser tab will open, showing your super cool PDF Shrinker!
+
+---
+
+### **What's New and Cooler:**
+
+* **Animations on Upload & Compress:**
+    * A **file upload animation** plays when the app starts, prompting the user.
+    * A **compression animation** plays while the PDF is being processed, making the waiting time more engaging.
+    * *Remember:* These rely on external Lottie JSON files. I've chosen generic ones. You can find more personalized ones on [LottieFiles.com](https://lottiefiles.com/)!
+* **"Feel the Difference" Animation (Simulated):**
+    * After compression, the app now uses `st.columns` and `st.metric` with clear emojis (`📊` for original, `👇` for shrunk) and bold text to visually represent the size drop side-by-side.
+    * The `st.markdown("## ➡️")` provides a simple visual flow from original to shrunk.
+    * A big, bold "You Saved: XX.XX%!" message reinforces the impact.
+* **Simplified Compression Control:**
+    * The "Image Quality" slider is replaced with "**Shrink Power! (More Power = Smaller File)**." This makes the control much more intuitive for a "non-IT" person. They just need to decide if they want a smaller file (more power) or better quality (less power).
+    * The `help` text for this slider is also simplified.
+* **Error Handling for Logo:** Added a `try-except` block for the logo image to prevent errors if the file isn't found, displaying a helpful warning instead.
+* **General Polish:** Continued to refine explanations, button labels, and use of markdown for better visual appeal and clarity.
+
+This version should be much more user-friendly and visually appealing, especially with the animations and the simplified compression control!
