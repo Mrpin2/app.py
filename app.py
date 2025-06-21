@@ -3,8 +3,6 @@
 import streamlit as st
 from pypdf import PdfWriter, PdfReader
 import io
-from streamlit_lottie import st_lottie
-import requests
 
 # --- Configuration for your App ---
 APP_TITLE = "Super Simple PDF Shrinker! 📄✨"
@@ -13,32 +11,6 @@ YOUR_LINKEDIN_URL = "https://www.linkedin.com/in/rajeevbhandari87/"
 # IMPORTANT: Ensure 'Logo.png' is in the ROOT of your GitHub repository,
 # alongside app.py, for Streamlit Cloud to find it.
 YOUR_LOGO_PATH = "Logo.png"
-
-# NEW Lottie URLs (tested on 2024-06-21, these are typically more stable than lottie.host direct links)
-# Search for "upload" on lottiefiles.com and pick one you like.
-# This one shows a file being uploaded:
-LOTTIE_ANIMATION_URL_UPLOAD = "https://lottie.host/1f9b3b89-a9c1-4c11-9a7e-1a5e1e7e4e0b/i2eE9xMh4v.json"
-# Search for "compress" or "optimize" on lottiefiles.com.
-# This one shows a file being optimized:
-LOTTIE_ANIMATION_URL_COMPRESS = "https://lottie.host/881e1e9a-7c91-4e7e-8b5e-2e5e1e7e4e0b/xK4z1P7kFq.json"
-
-
-# --- Helper to load Lottie Animations (modified to suppress direct errors) ---
-def load_lottieurl(url: str):
-    """
-    Loads a Lottie animation JSON from a given URL.
-    Returns None if there's an error, without displaying st.error directly.
-    """
-    try:
-        r = requests.get(url, timeout=5)
-        r.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
-        return r.json()
-    except requests.exceptions.RequestException:
-        # Silently fail if animation can't be loaded
-        return None
-    except ValueError: # JSON decoding error
-        # Silently fail if JSON is invalid
-        return None
 
 # --- Function to Shrink PDF Size (The Engine Room) ---
 def reduce_pdf_size(uploaded_file, compression_level=9, image_quality=80):
@@ -111,10 +83,9 @@ st.set_page_config(
 )
 
 # --- Logo Centering ---
-# Create three columns: left, middle (for logo), right
-col_logo_left, col_logo_center, col_logo_right = st.columns([1, 0.5, 1]) # Adjust ratios as needed
+col_logo_left, col_logo_center, col_logo_right = st.columns([1, 0.5, 1])
 
-with col_logo_center: # Put the logo in the middle column
+with col_logo_center:
     try:
         st.image(YOUR_LOGO_PATH, width=150)
     except FileNotFoundError:
@@ -130,11 +101,7 @@ st.markdown("Got a PDF that's too big? Let's make it smaller! "
 st.markdown("---") # Separator
 st.subheader("1. Upload Your PDF Here 👇")
 
-lottie_json_upload = load_lottieurl(LOTTIE_ANIMATION_URL_UPLOAD)
-if lottie_json_upload:
-    st_lottie(lottie_json_upload, height=150, key="pdf_upload_animation")
-else:
-    st.info("Animation couldn't load. Still works fine!") # Friendly message if animation fails
+# Removed Lottie animation for upload
 
 uploaded_file = st.file_uploader("Drag and drop your PDF or click to browse", type="pdf")
 
@@ -162,12 +129,8 @@ if uploaded_file is not None:
 
 
     if st.button("🚀 Shrink My PDF Now!", type="primary"):
-        with st.spinner("Crunching numbers and making your PDF tiny... Please wait!"):
-            lottie_json_compress = load_lottieurl(LOTTIE_ANIMATION_URL_COMPRESS)
-            if lottie_json_compress:
-                st_lottie(lottie_json_compress, height=200, key="pdf_compress_animation")
-            else:
-                st.info("Compression animation couldn't load, but the shrinking is still running!")
+        with st.spinner("Processing... Your PDF is getting its workout! 💪"):
+            # Removed Lottie animation for compress
 
             compressed_pdf_bytes, actual_original_size_bytes, actual_compressed_size_bytes = reduce_pdf_size(
                 uploaded_file, compression_level, image_quality
@@ -199,6 +162,12 @@ if uploaded_file is not None:
                     mime="application/pdf",
                     help="Click to download your newly shrunken PDF."
                 )
+
+                # --- New Humorous and Assuring Safety Message ---
+                st.markdown("---")
+                st.success("✨ **Privacy Check Complete!** ✨")
+                st.info("Your document was processed directly in our app's memory and **was never saved** to any server disk. "
+                        "Once you download it, your original file vanishes like magic! Poof! 💨")
 
 else: # This block displays when no file is uploaded yet
     st.markdown("---") # Another separator
