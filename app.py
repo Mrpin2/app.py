@@ -4,20 +4,31 @@ import streamlit as st
 from pypdf import PdfWriter, PdfReader
 import io
 
-# --- Function to Reduce PDF Size (With Lossy Image Compression Option) ---
+# --- Configuration for your App ---
+APP_TITLE = "Super Simple PDF Shrinker! 📄✨" # Catchy title
+APP_ICON = "🎈" # A fun emoji for the browser tab
+YOUR_LINKEDIN_URL = "https://www.linkedin.com/in/rajeevbhandari87/" # Your LinkedIn URL
+YOUR_LOGO_PATH = "your_logo.png" # <--- IMPORTANT: Replace with your logo's file name
+                                # Make sure 'your_logo.png' is in the same folder as app.py
+LOTTIE_ANIMATION_URL = "https://lottie.host/75421c60-a4a3-4ec6-8dd3-979f4277b949/67g8tq340F.json" # Example Lottie JSON URL for a file upload animation
+                                                                                               # Find more at lottiefiles.com!
+
+# --- Function to Shrink PDF Size (The Engine Room) ---
 def reduce_pdf_size(uploaded_file, compression_level=9, image_quality=80):
     """
-    Reduces the size of a PDF file using lossless content stream compression
-    and optional lossy image compression.
+    This magical function takes your PDF and makes it smaller!
+    It works by squishing things like text and pictures inside.
 
     Args:
-        uploaded_file: A Streamlit UploadedFile object.
-        compression_level (int): Zlib compression level for content streams (0-9).
-        image_quality (int): JPEG quality for images (0-100). Lower means more compression/less quality.
+        uploaded_file: The PDF file you uploaded.
+        compression_level (int): How much to squish text and graphics (0-9, 9 is most).
+                                 This doesn't make your images blurry!
+        image_quality (int): How much to squish pictures (0-100, 0 is most squished/blurry).
+                             This is where you save BIG on file size!
 
     Returns:
-        tuple: A tuple containing (io.BytesIO object of compressed PDF, original_size_bytes, compressed_size_bytes).
-               Returns (None, None, None) if an error occurs.
+        tuple: (The shrunken PDF, original size in bytes, new size in bytes).
+               Returns (None, None, None) if something goes wrong.
     """
     try:
         original_pdf_bytes = uploaded_file.getvalue()
@@ -26,82 +37,122 @@ def reduce_pdf_size(uploaded_file, compression_level=9, image_quality=80):
         reader = PdfReader(io.BytesIO(original_pdf_bytes))
         writer = PdfWriter()
 
-        # Iterate through each page
+        # Go through each page of your PDF
         for page_num in range(len(reader.pages)):
             page_from_reader = reader.pages[page_num]
 
-            # Add the page to the writer first to ensure it's in the correct context
+            # Add the page to our new (soon-to-be-shrunken) PDF
             writer.add_page(page_from_reader)
 
-            # Access the newly added page in the writer's context
+            # Get the page we just added so we can work on it
             current_page_in_writer = writer.pages[-1]
 
-            # Apply lossless compression to content streams (text, lines, etc.)
+            # Apply lossless compression to text, lines, etc.
+            # Think of this like neatly folding clothes – they take up less space, but nothing is lost.
             current_page_in_writer.compress_content_streams(level=compression_level)
 
-            # Optional: Reduce image quality if images are present and image_quality < 100
-            if image_quality < 100:
+            # --- EXPERIMENTAL: Reduce image quality if you want a smaller file ---
+            if image_quality < 100: # Only do this if you want to make images smaller
                 for img in current_page_in_writer.images:
                     try:
-                        # 'img.image' gives the PIL Image object
+                        # Re-squish the image with the quality you chose
                         img.replace(img.image, quality=image_quality)
                     except Exception as e:
-                        st.warning(f"Could not re-compress an image on a page (might be unsupported format or malformed). Error: {e}")
+                        # Sometimes an image might be tricky, we'll let you know!
+                        st.warning(f"Couldn't make an image smaller (might be a special type). Error: {e}")
 
-        # Optimize the PDF structure by removing duplicate and unused objects
+        # Optimize the PDF even further: remove duplicates and unused bits
+        # This is like decluttering your room – getting rid of things you don't need!
         writer.compress_identical_objects(remove_identicals=True, remove_orphans=True)
 
-        # Save the compressed PDF to a BytesIO object in memory
+        # Save the shrunken PDF into a temporary space in your computer's memory
         output_pdf_bytes = io.BytesIO()
         writer.write(output_pdf_bytes)
-        output_pdf_bytes.seek(0)  # Rewind to the beginning for reading/downloading
+        output_pdf_bytes.seek(0)  # Rewind to the beginning so we can read/download it
         compressed_size_bytes = len(output_pdf_bytes.getvalue())
 
         return output_pdf_bytes, original_size_bytes, compressed_size_bytes
 
     except Exception as e:
-        st.error(f"An error occurred during PDF processing: {e}. This might be due to a corrupted or unusual PDF structure. Please try a different PDF.")
+        st.error(f"Oh no! Something went wrong while shrinking your PDF: {e}. "
+                 "This can happen with very old or damaged PDFs. Please try a different file.")
         return None, None, None
 
-# --- Streamlit UI Layout ---
+# --- Streamlit User Interface (What you see!) ---
+
+# Set up the basic look of your app page
 st.set_page_config(
-    layout="centered",
-    page_title="PDF Size Reducer",
-    page_icon="📄"
+    layout="centered", # Makes the content nicely centered
+    page_title=APP_TITLE,
+    page_icon=APP_ICON
 )
 
-st.title("📄 PDF Size Reducer")
-st.markdown("Upload a PDF file and adjust settings to reduce its size. You can choose to sacrifice image quality for smaller files.")
+# You can add your logo here!
+# Ensure 'your_logo.png' is in the same directory as this script.
+# st.image(YOUR_LOGO_PATH, width=150) # Uncomment this line and replace 'your_logo.png' with your actual logo file name
 
-# File Uploader
-uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")
+st.title(f"{APP_ICON} {APP_TITLE}")
+st.markdown("Got a PDF that's too big? Let's make it smaller! "
+            "Perfect for emails, uploads, and saving space. ✨")
+
+# --- Animation Placeholder ---
+# To add cool animations, you'll need the 'streamlit_lottie' library.
+# Install it: pip install streamlit-lottie
+# Then, import it:
+# from streamlit_lottie import st_lottie
+# import requests # You might need this to load Lottie animations from a URL
+
+# def load_lottieurl(url: str):
+#     r = requests.get(url)
+#     if r.status_code != 200:
+#         return None
+#     return r.json()
+
+# lottie_json = load_lottieurl(LOTTIE_ANIMATION_URL)
+# if lottie_json:
+#     st_lottie(lottie_json, height=200, key="pdf_animation")
+# else:
+#     st.info("No cool animation? Make sure the Lottie URL is correct and install 'streamlit_lottie'!")
+
+st.write("---") # A nice separator line
+
+# File Uploader Section
+st.subheader("1. Upload Your PDF Here 👇")
+uploaded_file = st.file_uploader("Drag and drop your PDF or click to browse", type="pdf")
 
 if uploaded_file is not None:
     original_size_bytes_display = len(uploaded_file.getvalue())
-    st.info(f"Original file size: **{original_size_bytes_display / (1024*1024):.2f} MB**")
+    st.info(f"**Original PDF Size:** **`{original_size_bytes_display / (1024*1024):.2f} MB`** 📏")
 
-    st.subheader("Compression Options")
-    st.markdown("Adjust these sliders to control the level of compression. Lower image quality for smaller files.")
+    st.subheader("2. Choose How Much to Shrink It! 👇")
+    st.markdown("Want a *really* small file? Lower the 'Image Quality' setting. "
+                "Higher quality means a bigger file, but better-looking pictures.")
 
-    # Content Stream Compression (Lossless)
+    # --- Compression Options ---
+
+    # Content Stream Compression (Lossless) - explained simply
     compression_level = st.slider(
-        "Content Stream Compression (Lossless)",
+        "✨ **Smart Text & Graphics Shrinker** (No Quality Loss)",
         min_value=0, max_value=9, value=9, step=1,
-        help="Applies lossless compression to text and vector graphics. 0 = no compression, 9 = highest compression (might be slower). This does NOT affect image quality."
+        help="This tidies up text and drawings in your PDF without losing any detail. "
+             "Think of it as organizing files – they're the same, just neater and smaller! "
+             "Setting 9 is the best for shrinking (might take a tiny bit longer)."
     )
 
-    # Image Quality (Lossy) - This is your 'lever' for desired size
+    # Image Quality (Lossy) - Explained as the main 'lever'
     image_quality = st.slider(
-        "Image Quality (Lossy) - Your Size Lever",
+        "🖼️ **Picture Quality** (Your Main Size Lever!)",
         min_value=0, max_value=100, value=80, step=5,
-        help="Controls the quality of embedded images (like JPEG). 100 = original quality, 0 = lowest quality (most size reduction, but significant degradation). This is the primary control for reducing file size if your PDF contains images."
+        help="This is the most powerful setting for reducing PDF size, especially if your PDF has photos or scanned pages. "
+             "**100 = Best Quality (bigger file)**, **0 = Lowest Quality (super small file, but pictures might look blurry!)**. "
+             "Try different values to find your perfect balance!"
     )
-    st.markdown(f"**Current Image Quality Setting:** {image_quality}% (Lower % = smaller file, but more visual quality loss)")
+    st.markdown(f"**Current Picture Quality Setting:** `{image_quality}%` (Lower % = smaller file, more blur)")
 
 
-    if st.button("Compress PDF", type="primary"):
-        with st.spinner("Compressing PDF... This might take a moment for larger files."):
-            # Call the function with both compression_level and image_quality
+    if st.button("🚀 Shrink My PDF Now!", type="primary"):
+        with st.spinner("Crunching numbers and shrinking your PDF... This might take a moment!"):
+            # Call our main shrinking function
             compressed_pdf_bytes, actual_original_size_bytes, actual_compressed_size_bytes = reduce_pdf_size(
                 uploaded_file, compression_level, image_quality
             )
@@ -109,31 +160,55 @@ if uploaded_file is not None:
             if compressed_pdf_bytes:
                 reduction_percentage = ((actual_original_size_bytes - actual_compressed_size_bytes) / actual_original_size_bytes) * 100
 
-                st.success("PDF compressed successfully!")
-                st.write(f"**Compressed file size:** {actual_compressed_size_bytes / (1024*1024):.2f} MB")
-                st.write(f"**Size Reduction:** {reduction_percentage:.2f}%")
+                st.success("🎉 Your PDF has been successfully shrunk!")
+                st.write(f"**Shrunk File Size:** `{actual_compressed_size_bytes / (1024*1024):.2f} MB`")
+                st.write(f"**You Saved:** `{reduction_percentage:.2f}%` of the original size!")
 
-                # Provide feedback on the 10MB goal
+                # Provide feedback on the 10MB goal (if that's a common target)
                 if actual_compressed_size_bytes < (10 * 1024 * 1024): # 10 MB in bytes
-                    st.success(f"🎉 Success! The PDF is now under your 10MB target ({actual_compressed_size_bytes / (1024*1024):.2f} MB) with the chosen settings.")
+                    st.balloons() # A little celebration!
+                    st.success(f"🥳 Great news! Your PDF is now under the 10MB target (`{actual_compressed_size_bytes / (1024*1024):.2f} MB`) with these settings!")
                 else:
-                    st.info(f"The PDF was compressed to {actual_compressed_size_bytes / (1024*1024):.2f} MB. If you need it even smaller, try reducing the 'Image Quality' slider further.")
+                    st.info(f"Your PDF is now `{actual_compressed_size_bytes / (1024*1024):.2f} MB`. If you need it even smaller, try moving the 'Picture Quality' slider down further.")
 
                 st.download_button(
-                    label="Download Compressed PDF",
+                    label="⬇️ Download Your Shrunken PDF",
                     data=compressed_pdf_bytes,
-                    file_name="compressed_pdf.pdf", # Changed filename back to generic
+                    file_name=f"shrunk_{uploaded_file.name}", # Gives a more descriptive file name
                     mime="application/pdf",
-                    help="Click to download your compressed PDF."
+                    help="Click to download your newly shrunken PDF."
                 )
-            # Error handling in function, so no 'else' needed here
+            # No 'else' needed here, as the function itself handles errors with st.error
 
 else: # This block displays when no file is uploaded yet
-    st.markdown("---")
-    st.markdown("### How this PDF Compressor Works:")
+    st.markdown("---") # Another separator
+
+    st.subheader("💡 How This PDF Shrinker Works:")
     st.markdown("""
-    - **Content Stream Compression (Lossless):** Applies advanced zlib compression to text, vector graphics, and other content streams within the PDF. This method **does not lose any detail or quality**; it simply stores the data more efficiently.
-    - **Image Quality (Lossy):** This is your main tool for significant size reduction if your PDF contains images. It re-compresses embedded images (like photos or scanned documents) to a lower quality. **Lowering this value will reduce visual fidelity but greatly reduce file size.**
-    - **Object Optimization:** Scans the PDF for duplicate objects (e.g., the same font embedded multiple times) and unused data, removing them to achieve a smaller file size **without altering the visual or textual content**.
+    - **Smart Text & Graphics Shrinker (Lossless):** This clever part compresses the text and drawings in your PDF without changing how they look. It's like zipping up a folder – the contents are the same, just packed tighter!
+    - **Picture Quality (Lossy):** This is your secret weapon for super small files! If your PDF has photos or scanned pages, this feature will make them smaller by gently reducing their quality. Lower numbers mean smaller files but slightly less crisp pictures.
+    - **Digital Declutter (Object Optimization):** The tool also cleans up your PDF by removing any duplicate information or unused bits that might be hiding inside. It's all about making your file as lean as possible!
     """)
-    st.markdown("Built with ❤️ using [Streamlit](https://streamlit.io/) and [`pypdf`](https://pypdf.readthedocs.io/en/stable/).")
+    st.markdown("---")
+
+# --- Footer with your information ---
+st.markdown("Made with ❤️ by Rajeev Bhandari")
+st.markdown(f"Connect with me on [LinkedIn]({YOUR_LINKEDIN_URL})")
+# If you uncommented the logo line above, you might want to adjust its position
+# or size to fit well with the footer.
+
+# --- Instructions for the user to run this ---
+st.sidebar.markdown("### How to Use This App:")
+st.sidebar.markdown("""
+1.  **Save this code** as `app.py` on your computer.
+2.  **Save your logo** (e.g., `your_logo.png`) in the **same folder** as `app.py`.
+    * *If you don't have a logo, you can comment out the `st.image(YOUR_LOGO_PATH, width=150)` line above.*
+3.  **Open your computer's terminal or command prompt.**
+4.  **Navigate to the folder** where you saved `app.py` (e.g., `cd path/to/your/folder`).
+5.  **Install the necessary libraries:**
+    `pip install streamlit pypdf`
+    * *For animations, also install `pip install streamlit-lottie requests` and uncomment the animation block.*
+6.  **Run the app:**
+    `streamlit run app.py`
+7.  A web page will open in your browser, and you're ready to shrink PDFs!
+""")
