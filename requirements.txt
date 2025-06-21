@@ -1,3 +1,4 @@
 streamlit
 pypdf
-st_lottie
+requests
+streamlit-lottie
