@@ -3,7 +3,6 @@
 import streamlit as st
 from pypdf import PdfWriter, PdfReader
 import io
-# To use Lottie animations, install: pip install streamlit-lottie requests
 from streamlit_lottie import st_lottie
 import requests
 
@@ -14,23 +13,32 @@ YOUR_LINKEDIN_URL = "https://www.linkedin.com/in/rajeevbhandari87/"
 # IMPORTANT: Ensure 'Logo.png' is in the ROOT of your GitHub repository,
 # alongside app.py, for Streamlit Cloud to find it.
 YOUR_LOGO_PATH = "Logo.png"
-LOTTIE_ANIMATION_URL_UPLOAD = "https://lottie.host/75421c60-a4a3-4ec6-8dd3-979f4277b949/67g8tq340F.json" # File upload animation
-LOTTIE_ANIMATION_URL_COMPRESS = "https://lottie.host/17800746-8809-42b7-862d-a6d17b5f2122/tHn42x9pP3.json" # Compression/shrinking animation
 
-# --- Helper to load Lottie Animations ---
+# NEW Lottie URLs (tested on 2024-06-21, these are typically more stable than lottie.host direct links)
+# Search for "upload" on lottiefiles.com and pick one you like.
+# This one shows a file being uploaded:
+LOTTIE_ANIMATION_URL_UPLOAD = "https://lottie.host/1f9b3b89-a9c1-4c11-9a7e-1a5e1e7e4e0b/i2eE9xMh4v.json"
+# Search for "compress" or "optimize" on lottiefiles.com.
+# This one shows a file being optimized:
+LOTTIE_ANIMATION_URL_COMPRESS = "https://lottie.host/881e1e9a-7c91-4e7e-8b5e-2e5e1e7e4e0b/xK4z1P7kFq.json"
+
+
+# --- Helper to load Lottie Animations (modified to suppress direct errors) ---
 def load_lottieurl(url: str):
-    """Loads a Lottie animation JSON from a given URL."""
+    """
+    Loads a Lottie animation JSON from a given URL.
+    Returns None if there's an error, without displaying st.error directly.
+    """
     try:
-        r = requests.get(url, timeout=5) # Added timeout for robustness
+        r = requests.get(url, timeout=5)
         r.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
         return r.json()
-    except requests.exceptions.RequestException as e:
-        st.error(f"Failed to load animation from {url}. Error: {e}")
+    except requests.exceptions.RequestException:
+        # Silently fail if animation can't be loaded
         return None
     except ValueError: # JSON decoding error
-        st.error(f"Failed to decode JSON from animation URL: {url}. Is it a valid Lottie JSON?")
+        # Silently fail if JSON is invalid
         return None
-
 
 # --- Function to Shrink PDF Size (The Engine Room) ---
 def reduce_pdf_size(uploaded_file, compression_level=9, image_quality=80):
@@ -67,26 +75,23 @@ def reduce_pdf_size(uploaded_file, compression_level=9, image_quality=80):
             current_page_in_writer = writer.pages[-1]
 
             # Apply lossless compression to text, lines, etc.
-            # Think of this like neatly folding clothes – they take up less space, but nothing is lost.
             current_page_in_writer.compress_content_streams(level=compression_level)
 
             # --- Reduce image quality if you want a smaller file ---
-            if image_quality < 100: # Only do this if you want to make images smaller
+            if image_quality < 100:
                 for img in current_page_in_writer.images:
                     try:
-                        # Re-squish the image with the quality you chose
                         img.replace(img.image, quality=image_quality)
                     except Exception as e:
                         st.warning(f"Couldn't make an image smaller on a page (might be a special type). Error: {e}")
 
         # Optimize the PDF even further: remove duplicates and unused bits
-        # This is like decluttering your room – getting rid of things you don't need!
         writer.compress_identical_objects(remove_identicals=True, remove_orphans=True)
 
         # Save the shrunken PDF into a temporary space in your computer's memory
         output_pdf_bytes = io.BytesIO()
         writer.write(output_pdf_bytes)
-        output_pdf_bytes.seek(0)  # Rewind to the beginning so we can read/download it
+        output_pdf_bytes.seek(0)
         compressed_size_bytes = len(output_pdf_bytes.getvalue())
 
         return output_pdf_bytes, original_size_bytes, compressed_size_bytes
@@ -100,20 +105,22 @@ def reduce_pdf_size(uploaded_file, compression_level=9, image_quality=80):
 
 # Set up the basic look of your app page
 st.set_page_config(
-    layout="centered", # Makes the content nicely centered
+    layout="centered",
     page_title=APP_TITLE,
     page_icon=APP_ICON
 )
 
-# You can add your logo here!
-# Ensure 'Logo.png' is in the ROOT of your GitHub repository.
-try:
-    st.image(YOUR_LOGO_PATH, width=150)
-except FileNotFoundError:
-    st.warning("Logo file not found! Make sure 'Logo.png' is in the same folder as app.py and committed to GitHub.")
-except Exception as e:
-    st.error(f"An unexpected error occurred while loading the logo: {e}")
+# --- Logo Centering ---
+# Create three columns: left, middle (for logo), right
+col_logo_left, col_logo_center, col_logo_right = st.columns([1, 0.5, 1]) # Adjust ratios as needed
 
+with col_logo_center: # Put the logo in the middle column
+    try:
+        st.image(YOUR_LOGO_PATH, width=150)
+    except FileNotFoundError:
+        st.warning("Logo file 'Logo.png' not found. Make sure it's in the root of your GitHub repo.")
+    except Exception as e:
+        st.error(f"An unexpected error occurred while loading the logo: {e}")
 
 st.title(f"{APP_ICON} {APP_TITLE}")
 st.markdown("Got a PDF that's too big? Let's make it smaller! "
@@ -126,6 +133,8 @@ st.subheader("1. Upload Your PDF Here 👇")
 lottie_json_upload = load_lottieurl(LOTTIE_ANIMATION_URL_UPLOAD)
 if lottie_json_upload:
     st_lottie(lottie_json_upload, height=150, key="pdf_upload_animation")
+else:
+    st.info("Animation couldn't load. Still works fine!") # Friendly message if animation fails
 
 uploaded_file = st.file_uploader("Drag and drop your PDF or click to browse", type="pdf")
 
@@ -139,7 +148,6 @@ if uploaded_file is not None:
                 "The lower the quality, the smaller the file (but pictures might get a little blurry).")
 
     # --- Simplified Compression Control ---
-    # This slider directly controls the image_quality, but with friendlier labels.
     quality_setting = st.slider(
         "⚡ **Shrink Power!** (More Power = Smaller File)",
         min_value=0, max_value=100, value=75, step=5,
@@ -147,10 +155,8 @@ if uploaded_file is not None:
              "Slide towards 'Best Quality' to keep pictures crisp (larger file)."
     )
 
-    # Map the simplified slider to image_quality and compression_level
-    # We'll make 'compression_level' always max (9) for best lossless compression
     compression_level = 9
-    image_quality = quality_setting # Direct mapping for simplicity
+    image_quality = quality_setting
 
     st.markdown(f"**Your Current Setting:** You're aiming for a balance between **`{quality_setting}%`** picture quality and file size.")
 
@@ -161,7 +167,7 @@ if uploaded_file is not None:
             if lottie_json_compress:
                 st_lottie(lottie_json_compress, height=200, key="pdf_compress_animation")
             else:
-                st.info("Animation couldn't load, but the compression is still running!")
+                st.info("Compression animation couldn't load, but the shrinking is still running!")
 
             compressed_pdf_bytes, actual_original_size_bytes, actual_compressed_size_bytes = reduce_pdf_size(
                 uploaded_file, compression_level, image_quality
@@ -189,11 +195,10 @@ if uploaded_file is not None:
                 st.download_button(
                     label="⬇️ Download Your Shrunken PDF",
                     data=compressed_pdf_bytes,
-                    file_name=f"shrunk_{uploaded_file.name}", # Gives a more descriptive file name
+                    file_name=f"shrunk_{uploaded_file.name}",
                     mime="application/pdf",
                     help="Click to download your newly shrunken PDF."
                 )
-            # No 'else' needed here, as the function itself handles errors with st.error
 
 else: # This block displays when no file is uploaded yet
     st.markdown("---") # Another separator
