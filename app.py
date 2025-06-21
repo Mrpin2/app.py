@@ -51,9 +51,10 @@ def reduce_pdf_size(uploaded_file, compression_level=9, image_quality=80):
             if image_quality < 100:
                 for img in current_page_in_writer.images:
                     try:
+                        # pypdf's replace method primarily handles quality, not resampling
                         img.replace(img.image, quality=image_quality)
                     except Exception as e:
-                        st.warning(f"Couldn't make an image smaller on a page (might be a special type). Error: {e}")
+                        st.warning(f"Couldn't make an image smaller on a page (might be a special type or already heavily compressed). Error: {e}")
 
         # Optimize the PDF even further: remove duplicates and unused bits
         writer.compress_identical_objects(remove_identicals=True, remove_orphans=True)
@@ -110,19 +111,38 @@ if uploaded_file is not None:
     st.markdown("This tool works best by adjusting **Picture Quality**. The **lower** the quality value, the **smaller** the file (but pictures might get a little blurry).")
     st.markdown("If you need a very small file (e.g., under 10MB), you'll likely need to reduce the Picture Quality significantly.")
 
-    # --- Simplified Compression Control (Updated for Clarity) ---
-    quality_setting = st.slider(
-        "🖼️ **Picture Quality** (Lower Value = Smaller File)",
-        min_value=0, max_value=100, value=60, step=5, # Changed default to 60 to encourage more reduction
-        help="This controls the quality of images in your PDF. "
-             "**100 = Best Quality (largest file)**; **0 = Lowest Quality (smallest file, pictures might be very blurry)**. "
-             "Drag this slider towards 0 for the biggest file size reduction!"
+    # --- New: Heavy Download Scale Checkbox ---
+    st.markdown("### Advanced Options for Extreme Shrinking")
+    heavy_download_scale = st.checkbox(
+        "⚡ **Heavy Download Scale (Aggressive Shrink)**",
+        help="Check this for maximum file size reduction, which will apply the lowest possible picture quality. "
+             "Use this if your file is still too large after trying the slider. "
+             "Note: This might make images very blurry."
     )
 
-    compression_level = 9
-    image_quality = quality_setting
+    # --- Conditional Slider based on Checkbox ---
+    if heavy_download_scale:
+        image_quality = 5 # Force a very low quality when checked
+        st.info(f"**Heavy Download Scale Active:** Picture Quality set to **`{image_quality}%`** for maximum compression. The slider below is now inactive.")
+        quality_setting = st.slider(
+            "🖼️ **Picture Quality** (Lower Value = Smaller File)",
+            min_value=0, max_value=100, value=image_quality, step=5,
+            disabled=True, # Disable the slider
+            help="This slider is disabled because 'Heavy Download Scale' is active."
+        )
+    else:
+        quality_setting = st.slider(
+            "🖼️ **Picture Quality** (Lower Value = Smaller File)",
+            min_value=0, max_value=100, value=60, step=5, # Changed default to 60 to encourage more reduction
+            help="This controls the quality of images in your PDF. "
+                 "**100 = Best Quality (largest file)**; **0 = Lowest Quality (smallest file, pictures might be very blurry)**. "
+                 "Drag this slider towards 0 for the biggest file size reduction!"
+        )
+        image_quality = quality_setting
+        st.markdown(f"**Your Current Picture Quality Setting:** **`{quality_setting}%`** (Drag left for smaller files)")
 
-    st.markdown(f"**Your Current Picture Quality Setting:** **`{quality_setting}%`** (Drag left for smaller files)")
+
+    compression_level = 9 # Keep lossless compression high
 
 
     if st.button("🚀 Shrink My PDF Now!", type="primary"):
@@ -154,7 +174,7 @@ if uploaded_file is not None:
                     st.balloons()
                     st.success(f"✅ Success! Your PDF is now under 10MB ({actual_compressed_size_bytes / (1024*1024):.2f} MB)! Perfect for emails!")
                 else:
-                    st.info(f"Your PDF is now {actual_compressed_size_bytes / (1024*1024):.2f} MB. If you need it even smaller, try reducing the 'Picture Quality' slider further (drag it closer to 0).")
+                    st.info(f"Your PDF is now {actual_compressed_size_bytes / (1024*1024):.2f} MB. If you need it even smaller, and haven't tried, enable the 'Heavy Download Scale' option. For some PDFs (e.g., scanned documents), further reduction may not be possible with this tool without significant visual degradation.")
 
 
                 st.download_button(
@@ -179,6 +199,7 @@ else: # This block displays when no file is uploaded yet
     - **Smart Text & Graphics Shrinker:** This feature tidies up text and drawings without any loss in quality. It's like expertly packing a suitcase – everything fits better!
     - **Picture Quality (Your Main Shrink Lever):** This is where the magic happens for big PDFs with images. It gently reduces picture quality to make the file much smaller. Less quality = much smaller file!
     - **Digital Declutter:** The tool also cleans up your PDF by removing any hidden, unused bits, making it even lighter.
+    - **⚡ Heavy Download Scale:** An advanced option for extreme shrinking. This applies the lowest possible picture quality for maximum file size reduction.
     """)
     st.markdown("---")
 
